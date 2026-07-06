@@ -18,6 +18,7 @@ PHASE_CLOSING = "Closing"
 COMMAND_VALUES = list(range(101))
 OPENING_X_RANGE = (0, 100)
 CLOSING_X_RANGE = (100, 0)
+PNG_XLABEL = "Valve Command (%)"
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,8 @@ class TorqueMetric:
     ylabel: str
     hover_label: str
     title_word: str
+    ylabel_en: str
+    title_word_en: str
     opening_x_desc: str = "0~100"
     closing_x_desc: str = "100~0"
 
@@ -41,6 +44,8 @@ METRIC_PEAK = TorqueMetric(
     ylabel=f"分箱峰值{config.COL_TORQUE}",
     hover_label=f"峰值{config.COL_TORQUE}",
     title_word="峰值",
+    ylabel_en="Binned Peak Torque",
+    title_word_en="Peak",
 )
 METRIC_MEAN = TorqueMetric(
     key="mean",
@@ -49,8 +54,22 @@ METRIC_MEAN = TorqueMetric(
     ylabel=f"分箱平均{config.COL_TORQUE}",
     hover_label=f"平均{config.COL_TORQUE}",
     title_word="平均",
+    ylabel_en="Binned Mean Torque",
+    title_word_en="Mean",
 )
 TORQUE_METRICS = (METRIC_PEAK, METRIC_MEAN)
+
+
+def _png_single_title(metric: TorqueMetric, x_ascending: bool) -> str:
+    """PNG 单图英文标题（避免 Linux 服务器缺中文字体）"""
+    phase = "Opening" if x_ascending else "Closing"
+    x_desc = metric.opening_x_desc if x_ascending else metric.closing_x_desc
+    return f"{phase} Binned {metric.title_word_en} Torque (Command {x_desc}%)"
+
+
+def _png_combined_title(metric: TorqueMetric) -> str:
+    """PNG 合并图英文总标题"""
+    return f"Opening / Closing Binned {metric.title_word_en} Torque"
 
 
 @dataclass(frozen=True)
@@ -298,6 +317,8 @@ def _build_torque_curve_png_bytes(
     y_limits: tuple[float, float] | None = None,
     max_command: int | None = None,
     x_range: tuple[int, int] | None = None,
+    *,
+    english_labels: bool = False,
 ) -> bytes | None:
     """绘制单条分箱扭矩曲线（PNG 字节）"""
     active = _ordered_stats(stats, ascending=x_ascending, max_command=max_command)
@@ -306,6 +327,15 @@ def _build_torque_curve_png_bytes(
 
     if x_range is None:
         x_range = OPENING_X_RANGE if x_ascending else CLOSING_X_RANGE
+
+    if english_labels:
+        png_title = _png_single_title(metric, x_ascending)
+        xlabel = PNG_XLABEL
+        ylabel = metric.ylabel_en
+    else:
+        png_title = title
+        xlabel = f"{config.COL_COMMAND} (%)"
+        ylabel = metric.ylabel
 
     fig, ax = plt.subplots(figsize=config.FIG_SIZE)
     ax.plot(
@@ -316,9 +346,9 @@ def _build_torque_curve_png_bytes(
         linewidth=1.2,
         color=color,
     )
-    ax.set_title(title, fontsize=14)
-    ax.set_xlabel(f"{config.COL_COMMAND} (%)", fontsize=12)
-    ax.set_ylabel(metric.ylabel, fontsize=12)
+    ax.set_title(png_title, fontsize=14)
+    ax.set_xlabel(xlabel, fontsize=12)
+    ax.set_ylabel(ylabel, fontsize=12)
     ax.set_xlim(x_range)
     if y_limits:
         ax.set_ylim(y_limits)
@@ -492,7 +522,7 @@ def _build_combined_torque_curves_png_bytes(
     metric: TorqueMetric,
     y_limits: tuple[float, float] | None = None,
 ) -> bytes | None:
-    """绘制开/关阀合并对比图（PNG 字节）"""
+    """绘制开/关阀合并对比图（PNG 字节，英文标签以兼容无中文字体的服务器）"""
     opening_active = _ordered_stats(opening, ascending=True)
     closing_active = _ordered_stats(closing, ascending=False)
     if opening_active.empty and closing_active.empty:
@@ -510,8 +540,8 @@ def _build_combined_torque_curves_png_bytes(
             color="#2ca02c",
         )
     axes[0].set_title("Opening", fontsize=13)
-    axes[0].set_xlabel(f"{config.COL_COMMAND} (%)", fontsize=12)
-    axes[0].set_ylabel(metric.ylabel, fontsize=12)
+    axes[0].set_xlabel(PNG_XLABEL, fontsize=12)
+    axes[0].set_ylabel(metric.ylabel_en, fontsize=12)
     axes[0].set_xlim(OPENING_X_RANGE)
     axes[0].grid(True, linestyle="--", alpha=0.6)
 
@@ -525,7 +555,7 @@ def _build_combined_torque_curves_png_bytes(
             color="#ff7f0e",
         )
     axes[1].set_title("Closing", fontsize=13)
-    axes[1].set_xlabel(f"{config.COL_COMMAND} (%)", fontsize=12)
+    axes[1].set_xlabel(PNG_XLABEL, fontsize=12)
     axes[1].set_xlim(CLOSING_X_RANGE)
     axes[1].grid(True, linestyle="--", alpha=0.6)
 
@@ -533,10 +563,7 @@ def _build_combined_torque_curves_png_bytes(
         axes[0].set_ylim(y_limits)
         axes[1].set_ylim(y_limits)
 
-    fig.suptitle(
-        f"Opening / Closing 分箱{metric.title_word}扭矩曲线",
-        fontsize=14,
-    )
+    fig.suptitle(_png_combined_title(metric), fontsize=14)
     fig.tight_layout()
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=config.DPI, bbox_inches="tight")
