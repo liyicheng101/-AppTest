@@ -521,12 +521,23 @@ def _build_combined_torque_curves_png_bytes(
     closing: pd.DataFrame,
     metric: TorqueMetric,
     y_limits: tuple[float, float] | None = None,
+    *,
+    english_labels: bool = False,
 ) -> bytes | None:
-    """绘制开/关阀合并对比图（PNG 字节，英文标签以兼容无中文字体的服务器）"""
+    """绘制开/关阀合并对比图（PNG 字节）"""
     opening_active = _ordered_stats(opening, ascending=True)
     closing_active = _ordered_stats(closing, ascending=False)
     if opening_active.empty and closing_active.empty:
         return None
+
+    if english_labels:
+        xlabel = PNG_XLABEL
+        ylabel = metric.ylabel_en
+        suptitle = _png_combined_title(metric)
+    else:
+        xlabel = f"{config.COL_COMMAND} (%)"
+        ylabel = metric.ylabel
+        suptitle = f"Opening / Closing 分箱{metric.title_word}扭矩曲线"
 
     fig, axes = plt.subplots(1, 2, figsize=(config.FIG_SIZE[0] * 1.6, config.FIG_SIZE[1]), sharey=True)
 
@@ -540,8 +551,8 @@ def _build_combined_torque_curves_png_bytes(
             color="#2ca02c",
         )
     axes[0].set_title("Opening", fontsize=13)
-    axes[0].set_xlabel(PNG_XLABEL, fontsize=12)
-    axes[0].set_ylabel(metric.ylabel_en, fontsize=12)
+    axes[0].set_xlabel(xlabel, fontsize=12)
+    axes[0].set_ylabel(ylabel, fontsize=12)
     axes[0].set_xlim(OPENING_X_RANGE)
     axes[0].grid(True, linestyle="--", alpha=0.6)
 
@@ -555,7 +566,7 @@ def _build_combined_torque_curves_png_bytes(
             color="#ff7f0e",
         )
     axes[1].set_title("Closing", fontsize=13)
-    axes[1].set_xlabel(PNG_XLABEL, fontsize=12)
+    axes[1].set_xlabel(xlabel, fontsize=12)
     axes[1].set_xlim(CLOSING_X_RANGE)
     axes[1].grid(True, linestyle="--", alpha=0.6)
 
@@ -563,7 +574,7 @@ def _build_combined_torque_curves_png_bytes(
         axes[0].set_ylim(y_limits)
         axes[1].set_ylim(y_limits)
 
-    fig.suptitle(_png_combined_title(metric), fontsize=14)
+    fig.suptitle(suptitle, fontsize=14)
     fig.tight_layout()
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=config.DPI, bbox_inches="tight")
@@ -713,19 +724,33 @@ def _build_web_figures(phase_stats: dict[str, pd.DataFrame]) -> tuple[dict[str, 
             plotly_figures[f"{prefix}_combined"] = combined_fig
 
         opening_png = _build_torque_curve_png_bytes(
-            opening, metric, opening_title, "#2ca02c", "o", True, opening_y_limits
+            opening,
+            metric,
+            opening_title,
+            "#2ca02c",
+            "o",
+            True,
+            opening_y_limits,
+            english_labels=True,
         )
         if opening_png is not None:
             png_bytes[f"{prefix}_opening"] = opening_png
 
         closing_png = _build_torque_curve_png_bytes(
-            closing, metric, closing_title, "#ff7f0e", "s", False, closing_y_limits
+            closing,
+            metric,
+            closing_title,
+            "#ff7f0e",
+            "s",
+            False,
+            closing_y_limits,
+            english_labels=True,
         )
         if closing_png is not None:
             png_bytes[f"{prefix}_closing"] = closing_png
 
         combined_png = _build_combined_torque_curves_png_bytes(
-            opening, closing, metric, combined_y_limits
+            opening, closing, metric, combined_y_limits, english_labels=True
         )
         if combined_png is not None:
             png_bytes[f"{prefix}_combined"] = combined_png
