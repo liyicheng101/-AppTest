@@ -98,23 +98,18 @@ def render_metric_tab(result, metric_key: str, metric_label: str) -> None:
     """展示某一指标（峰值 / 平均）的图表与下载"""
     render_downloads(result, metric_key, metric_label)
 
-    combined = result.plotly_figures.get(f"{metric_key}_combined")
-    if combined:
-        st.plotly_chart(combined, use_container_width=True, key=f"chart_{metric_key}_combined")
-
-    col1, col2 = st.columns(2)
     opening = result.plotly_figures.get(f"{metric_key}_opening")
     closing = result.plotly_figures.get(f"{metric_key}_closing")
-    with col1:
-        if opening:
-            st.plotly_chart(opening, use_container_width=True, key=f"chart_{metric_key}_opening")
-        else:
-            st.warning("开阀区间无有效分箱数据")
-    with col2:
-        if closing:
-            st.plotly_chart(closing, use_container_width=True, key=f"chart_{metric_key}_closing")
-        else:
-            st.warning("关阀区间无有效分箱数据")
+
+    if opening:
+        st.plotly_chart(opening, use_container_width=True, key=f"chart_{metric_key}_opening")
+    else:
+        st.warning("开阀区间无有效分箱数据")
+
+    if closing:
+        st.plotly_chart(closing, use_container_width=True, key=f"chart_{metric_key}_closing")
+    else:
+        st.warning("关阀区间无有效分箱数据")
 
     with st.expander("查看分箱统计表"):
         st.markdown("**开阀 (Opening)**")
