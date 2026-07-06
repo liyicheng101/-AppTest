@@ -717,12 +717,6 @@ def _build_web_figures(phase_stats: dict[str, pd.DataFrame]) -> tuple[dict[str, 
         if closing_fig is not None:
             plotly_figures[f"{prefix}_closing"] = closing_fig
 
-        combined_fig = _build_combined_torque_curves_figure(
-            opening, closing, metric, combined_y_limits
-        )
-        if combined_fig is not None:
-            plotly_figures[f"{prefix}_combined"] = combined_fig
-
         opening_png = _build_torque_curve_png_bytes(
             opening,
             metric,
